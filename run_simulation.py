@@ -2,13 +2,13 @@
 """
 League One Monte Carlo Season Predictor
 
-Fetches xG data from FBref, fits a Dixon-Coles model, and runs
-Monte Carlo simulations of the remaining fixtures to predict
+Estimates team strengths (from standings or match-level xG via FotMob),
+then runs Monte Carlo simulations of remaining fixtures to predict
 final league standings probabilities.
 
 Usage:
     python run_simulation.py                        # Standings-based (default)
-    python run_simulation.py --fbref                # Fetch xG data from FBref
+    python run_simulation.py --fotmob               # Fetch xG data from FotMob
     python run_simulation.py --manual               # Use manual match CSV
     python run_simulation.py --sims 50000           # Custom simulation count
     python run_simulation.py --team "Cardiff"       # Detailed view for a team
@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from league_one_predictor.data_fetcher import (
-    try_fetch_fbref,
+    try_fetch_fotmob,
     get_played_matches,
     get_remaining_fixtures,
     load_manual_data,
@@ -90,7 +90,7 @@ def run_standings_mode(args):
 
 def run_match_mode(args):
     """
-    Run simulation from match-level data (FBref xG or manual CSV).
+    Run simulation from match-level data (FotMob xG or manual CSV).
 
     This is the more accurate mode when individual match xG data is available.
     """
@@ -100,11 +100,11 @@ def run_match_mode(args):
             df = load_manual_data(args.data_file)
             print(f"Loaded {len(df)} fixtures from manual data")
         else:
-            df = try_fetch_fbref(use_cache=not args.no_cache)
+            df = try_fetch_fotmob(use_cache=not args.no_cache)
     except Exception as e:
         print(f"\nError fetching data: {e}")
         print("\nTip: Use standings mode instead:")
-        print("  python run_simulation.py --standings")
+        print("  python run_simulation.py")
         print("\nOr provide manual match data:")
         print("  python run_simulation.py --manual --data-file path/to/matches.csv")
         sys.exit(1)
@@ -154,22 +154,22 @@ def main():
         epilog="""
 Examples:
   python run_simulation.py                          # Default: use standings data
-  python run_simulation.py --fbref                  # Fetch xG from FBref
+  python run_simulation.py --fotmob                  # Fetch xG from FotMob
   python run_simulation.py --sims 50000             # More simulations
   python run_simulation.py --team "Cardiff"         # Detailed team view
   python run_simulation.py --team "Bolton" --sims 100000
 
 Data modes:
   Default uses data/standings.csv + data/remaining_fixtures.csv
-  --fbref fetches match-level xG data from FBref (may be blocked)
+  --fotmob fetches match-level xG data from FotMob (may be blocked)
   --manual uses match-level data from data/matches.csv
         """
     )
 
     # Data source
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--fbref", action="store_true",
-                        help="Fetch match-level xG data from FBref")
+    source.add_argument("--fotmob", action="store_true",
+                        help="Fetch match-level xG data from FotMob")
     source.add_argument("--manual", action="store_true",
                         help="Use manual match CSV from data/matches.csv")
 
@@ -193,7 +193,7 @@ Data modes:
     parser.add_argument("--use-goals", action="store_true",
                         help="Use actual goals instead of xG for model fitting")
     parser.add_argument("--no-cache", action="store_true",
-                        help="Force fresh data fetch from FBref")
+                        help="Force fresh data fetch from FotMob")
 
     # Output
     parser.add_argument("--team", type=str, default=None,
@@ -207,7 +207,7 @@ Data modes:
     print("=" * 60)
 
     # Choose data mode
-    if args.fbref or args.manual or args.data_file:
+    if args.fotmob or args.manual or args.data_file:
         model, current_table, remaining = run_match_mode(args)
     else:
         model, current_table, remaining = run_standings_mode(args)
